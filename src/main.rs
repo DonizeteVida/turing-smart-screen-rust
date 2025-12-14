@@ -58,7 +58,7 @@ impl Display {
         _x: u16,
         _y: u16,
     ) {
-        let mut buffer: [u8; 6] = [0; 6];
+        let mut buffer = [0u8; 6];
 
         //  X 10 bits, 8 MSB written, 2 remaining
         buffer[0] = (x >> 2) as u8;
