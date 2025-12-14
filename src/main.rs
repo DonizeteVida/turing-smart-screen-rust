@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use image::{EncodableLayout, ImageReader};
 use serialport::{SerialPort, SerialPortType};
 
 enum DisplayCommand {
@@ -10,6 +11,8 @@ enum DisplayCommand {
 
 #[derive(Debug)]
 struct Display {
+    pub width: u16,
+    pub height: u16,
     conn: Box<dyn SerialPort>,
 }
 
@@ -32,7 +35,11 @@ impl Display {
         let mut conn = serialport::new(turing_device.port_name.to_owned(), 115_200).open()?;
         conn.write_request_to_send(true)?;
 
-        Ok(Self { conn })
+        Ok(Self {
+            width: 320,
+            height: 480,
+            conn,
+        })
     }
 
     fn send(&mut self, bytes: &[u8]) {
@@ -90,11 +97,11 @@ impl Display {
         self.send_stateless_command(DisplayCommand::ScreenOn)
     }
 
-    fn turn_ff(&mut self) {
+    fn turn_off(&mut self) {
         self.send_stateless_command(DisplayCommand::ScreenOff)
     }
 
-    fn send_rect_draw(&mut self, start_x: u16, start_y: u16, end_x: u16, end_y: u16) {
+    fn send_draw_rect(&mut self, start_x: u16, start_y: u16, end_x: u16, end_y: u16) {
         self.send_statefull_command(
             DisplayCommand::DisplayBitmap,
             start_x,
@@ -105,9 +112,41 @@ impl Display {
     }
 }
 
+fn rgb888_to_rgb565(buffer: &[u8]) -> [u8; 2] {
+    let r = buffer[0] as u16;
+    let g = buffer[1] as u16;
+    let b = buffer[2] as u16;
+
+    //it will convert
+    //RGB888 - 24 bits to
+    //RGB565 - 16 bits
+    let word = ((r & 0b11111000) << 8) | ((g & 0b11111100) << 3) | (b >> 3);
+    [word as u8, (word >> 8) as u8]
+}
+
+fn display_draw_image(display: &mut Display, path: &str) -> Result<()> {
+    display.send_draw_rect(0, 0, display.width - 1, display.height - 1);
+
+    let bytes = ImageReader::open(path)?
+        .decode()?
+        .into_rgb8()
+        .as_bytes()
+        .chunks(3)
+        .flat_map(rgb888_to_rgb565)
+        .collect::<Vec<_>>();
+
+    assert!(bytes.len() == (display.width as usize * display.height as usize * 2));
+
+    display.send(bytes.as_ref());
+
+    Ok(())
+}
+
 fn main() -> Result<()> {
-    let display = Display::new()?;
+    let mut display = Display::new()?;
     println!("{:#?}", display);
+
+    display_draw_image(&mut display, "docs/sample.jpg")?;
 
     Ok(())
 }
