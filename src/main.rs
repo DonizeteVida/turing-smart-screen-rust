@@ -42,12 +42,12 @@ impl Display {
         })
     }
 
-    fn send(&mut self, bytes: &[u8]) {
-        self.conn.write_all(bytes).unwrap();
-
+    fn send(&mut self, bytes: &[u8]) -> Result<()> {
         if cfg!(debug_assertions) && false {
             println!("{:?}", bytes.to_ascii_lowercase());
         }
+
+        Ok(self.conn.write_all(bytes)?)
     }
 
     fn send_statefull_command(
@@ -57,7 +57,7 @@ impl Display {
         y: u16,
         _x: u16,
         _y: u16,
-    ) {
+    ) -> Result<()> {
         let mut buffer = [0u8; 6];
 
         //  X 10 bits, 8 MSB written, 2 remaining
@@ -80,28 +80,28 @@ impl Display {
 
         buffer[5] = display_command as u8;
 
-        self.send(&buffer);
+        self.send(&buffer)
     }
 
-    fn send_stateless_command(&mut self, display_command: DisplayCommand) {
+    fn send_stateless_command(&mut self, display_command: DisplayCommand) -> Result<()> {
         let mut buf = [0u8; 6];
         buf[5] = display_command as u8;
         self.send(&buf)
     }
 
-    fn clear(&mut self) {
-        self.send_stateless_command(DisplayCommand::Clear);
+    fn clear(&mut self) -> Result<()> {
+        self.send_stateless_command(DisplayCommand::Clear)
     }
 
-    fn turn_on(&mut self) {
+    fn turn_on(&mut self) -> Result<()> {
         self.send_stateless_command(DisplayCommand::ScreenOn)
     }
 
-    fn turn_off(&mut self) {
+    fn turn_off(&mut self) -> Result<()> {
         self.send_stateless_command(DisplayCommand::ScreenOff)
     }
 
-    fn send_draw_rect(&mut self, start_x: u16, start_y: u16, end_x: u16, end_y: u16) {
+    fn send_draw_rect(&mut self, start_x: u16, start_y: u16, end_x: u16, end_y: u16) -> Result<()> {
         self.send_statefull_command(
             DisplayCommand::DisplayBitmap,
             start_x,
@@ -125,7 +125,7 @@ fn rgb888_to_rgb565(buffer: &[u8]) -> [u8; 2] {
 }
 
 fn display_draw_image(display: &mut Display, path: &str) -> Result<()> {
-    display.send_draw_rect(0, 0, display.width - 1, display.height - 1);
+    display.send_draw_rect(0, 0, display.width - 1, display.height - 1)?;
 
     let bytes = ImageReader::open(path)?
         .decode()?
@@ -137,16 +137,11 @@ fn display_draw_image(display: &mut Display, path: &str) -> Result<()> {
 
     assert!(bytes.len() == (display.width as usize * display.height as usize * 2));
 
-    display.send(bytes.as_ref());
-
-    Ok(())
+    display.send(bytes.as_ref())
 }
 
 fn main() -> Result<()> {
     let mut display = Display::new()?;
     println!("{:#?}", display);
-
-    display_draw_image(&mut display, "docs/sample.jpg")?;
-
-    Ok(())
+    Ok(display_draw_image(&mut display, "docs/sample.jpg")?)
 }
