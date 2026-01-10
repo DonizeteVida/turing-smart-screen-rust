@@ -143,5 +143,6 @@ fn display_draw_image(display: &mut Display, path: &str) -> Result<()> {
 fn main() -> Result<()> {
     let mut display = Display::new()?;
     println!("{:#?}", display);
-    Ok(display_draw_image(&mut display, "docs/sample.jpg")?)
+    display_draw_image(&mut display, "docs/sample.jpg")?;
+    Ok(())
 }
