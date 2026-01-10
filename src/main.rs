@@ -112,7 +112,7 @@ impl Display {
     }
 }
 
-fn rgb888_to_rgb565(buffer: &[u8]) -> [u8; 2] {
+fn rgb888_to_rgb565(buffer: &[u8; 3]) -> [u8; 2] {
     let r = buffer[0] as u16;
     let g = buffer[1] as u16;
     let b = buffer[2] as u16;
@@ -131,7 +131,9 @@ fn display_draw_image(display: &mut Display, path: &str) -> Result<()> {
         .decode()?
         .into_rgb8()
         .as_bytes()
-        .chunks(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .flat_map(rgb888_to_rgb565)
         .collect::<Vec<_>>();
 
